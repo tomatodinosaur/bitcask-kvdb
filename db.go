@@ -180,7 +180,7 @@ func (db *DB) appendLogRecord(logrecord *data.LogRecord) (*data.LogRecordPos, er
 	}
 
 	//写入数据编码
-	enRecord, size := data.Encode_LogRecord(*logrecord)
+	enRecord, size := data.Encode_LogRecord(logrecord)
 
 	//如果写入的数据超过活跃文件阈值，则关闭活跃文件，并打开新的文件
 	if db.activefile.Writeoff+size > db.options.DataFileSize {
