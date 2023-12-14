@@ -1,5 +1,7 @@
 package bitcaskkvdb
 
+import "os"
+
 type Options struct {
 	//数据库数据目录
 	Dirpath string
@@ -14,6 +16,14 @@ type Options struct {
 	IndexType IndexType
 }
 
+// Iterator配置项
+type IteratorOptions struct {
+	//遍历前缀为指定值的Key，默认为空
+	Prefix []byte
+	//是否反向遍历，false=正向
+	Reverse bool
+}
+
 type IndexType = int8
 
 const (
@@ -23,3 +33,15 @@ const (
 	//ART 自适应基数树
 	ART
 )
+
+var DefaultOptions = Options{
+	Dirpath:      os.TempDir(),
+	DataFileSize: 256 * 1024 * 1024,
+	SyncWrites:   false,
+	IndexType:    Btree,
+}
+
+var DefalutIteratorOptions = IteratorOptions{
+	Prefix:  nil,
+	Reverse: false,
+}

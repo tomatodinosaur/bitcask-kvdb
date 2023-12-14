@@ -55,3 +55,39 @@ func TestBtree_Delete(t *testing.T) {
 	res5 := bt.Delete([]byte("abc"))
 	assert.True(t, res5)
 }
+
+func TestBtree_Iterator(t *testing.T) {
+	bt := NewBtree()
+	//Btree为空
+	iter := bt.Iterator(false)
+	assert.Equal(t, false, iter.Valid())
+
+	//Btree有数据
+	bt.Put([]byte("abc"), &data.LogRecordPos{Fid: 1, Offset: 2})
+	iter = bt.Iterator(false)
+	assert.Equal(t, true, iter.Valid())
+	iter.Next()
+	assert.Equal(t, false, iter.Valid())
+
+	bt.Put([]byte("abc"), &data.LogRecordPos{Fid: 1, Offset: 2})
+	bt.Put([]byte("abcd"), &data.LogRecordPos{Fid: 1, Offset: 2})
+	bt.Put([]byte("abcde"), &data.LogRecordPos{Fid: 1, Offset: 2})
+	iter = bt.Iterator(false)
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		t.Log(string(iter.Key()))
+	}
+	iter = bt.Iterator(true)
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		t.Log(string(iter.Key()))
+	}
+
+	iter = bt.Iterator(false)
+	for iter.Seek([]byte("abcd")); iter.Valid(); iter.Next() {
+		t.Log(string(iter.Key()))
+	}
+
+	iter = bt.Iterator(true)
+	for iter.Seek([]byte("abcd")); iter.Valid(); iter.Next() {
+		t.Log(string(iter.Key()))
+	}
+}

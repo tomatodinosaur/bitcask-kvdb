@@ -137,7 +137,74 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	if logpos == nil {
 		return nil, ErrKeyNotFind
 	}
+	// 根据索引协议获取对应的Value
+	return db.getValueByPostion(logpos)
 
+}
+
+// 获取 数据库中所有的key
+func (db *DB) ListKeys() [][]byte {
+	iter := db.index.Iterator(false)
+	ans := make([][]byte, db.index.Size())
+	idx := 0
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		key := iter.Key()
+		ans[idx] = key
+		idx++
+	}
+	return ans
+}
+
+// 获取 所有的数据，并执行用户指定的操作
+func (db *DB) Fold(f func(key []byte, value []byte) bool) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	iter := db.NewIterator(DefalutIteratorOptions)
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		key := iter.Key()
+		value, err := iter.Value()
+		if err != nil {
+			return err
+		}
+		if !f(key, value) {
+			break
+		}
+	}
+	return nil
+}
+
+// 关闭数据库
+func (db *DB) Close() error {
+	if db.activefile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	//关闭活跃文件
+	if err := db.activefile.Close(); err != nil {
+		return err
+	}
+	for _, file := range db.olderfile {
+		if err := file.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 持久化
+func (db *DB) Sync() error {
+	if db.activefile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.activefile.Sync()
+}
+
+// 根据索引协议获取对应的Value
+func (db *DB) getValueByPostion(logpos *data.LogRecordPos) ([]byte, error) {
 	//根据文件ID找到数据文件
 	var dataFile *data.DataFile
 

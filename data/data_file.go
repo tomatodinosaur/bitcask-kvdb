@@ -67,7 +67,7 @@ func (df *DataFile) ReadRecord(offset int64) (*LogRecord, int64, error) {
 	}
 
 	//读取Header信息【crc type keysize valuesize】
-	headerBuf, err := df.readNBytes(headerBytes, 0)
+	headerBuf, err := df.readNBytes(headerBytes, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -89,7 +89,7 @@ func (df *DataFile) ReadRecord(offset int64) (*LogRecord, int64, error) {
 	logRecord := &LogRecord{Type: header.Type}
 	//开始读取用户的实际存储的 Key/Value数据
 	if keySize > 0 || valueSize > 0 {
-		kvbuf, err := df.readNBytes(recordSize, offset+headerSize)
+		kvbuf, err := df.readNBytes(keySize+valueSize, offset+headerSize)
 		if err != nil {
 			return nil, 0, err
 		}

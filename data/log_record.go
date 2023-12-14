@@ -1,6 +1,9 @@
 package data
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"hash/crc32"
+)
 
 type LogRecordType = byte
 
@@ -35,15 +38,72 @@ type LogRecordHeader struct {
 }
 
 // 对LogRecord进行编码，返回字节数组和长度
+
 func Encode_LogRecord(logrecord *LogRecord) ([]byte, int64) {
-	return nil, 0
+	/*-------------------------------------------------------------
+	| crc   type    keysize      valuesize  |   key       value		|
+	|	4			1			变长(最大5)		变长(最大5)	 | keysize		valuesize|
+	------------------------------------------------------------*/
+
+	//初始化一个header部分的字节数组
+	header := make([]byte, maxLogRecordHeaderSize)
+
+	//第5个字节储存Type
+	header[4] = logrecord.Type
+	var index = 5
+
+	//5字节后，写入size信息
+	index += binary.PutVarint(header[index:], int64(len(logrecord.Key)))
+	index += binary.PutVarint(header[index:], int64(len(logrecord.Value)))
+
+	var realsize = index + len(logrecord.Key) + len(logrecord.Value)
+	EncodeBytes := make([]byte, realsize)
+
+	//将header切片拷贝过来
+	copy(EncodeBytes, header[:index])
+	copy(EncodeBytes[index:], logrecord.Key)
+	copy(EncodeBytes[index+len(logrecord.Key):], logrecord.Value)
+
+	//crc校验
+	crc := crc32.ChecksumIEEE(EncodeBytes[4:])
+	binary.LittleEndian.PutUint32(EncodeBytes[:4], crc)
+
+	return EncodeBytes, int64(realsize)
 }
 
 // 将字节数组解码成LogRecordHeader
 func decodeLogRecordHeader(buf []byte) (*LogRecordHeader, int64) {
-	return nil, 0
+	if len(buf) <= 4 {
+		return nil, 0
+	}
+
+	header := &LogRecordHeader{
+		crc:  binary.LittleEndian.Uint32(buf[:4]),
+		Type: buf[4],
+	}
+
+	var index = 5
+	//取出实际的	key size
+	keysize, n := binary.Varint(buf[index:])
+	header.keySize = uint32(keysize)
+	index += n
+
+	//取出实际的	value size
+	valuesize, n := binary.Varint(buf[index:])
+	header.valueSize = uint32(valuesize)
+	index += n
+
+	return header, int64(index)
 }
 
 func getLogRecordCrc(lr *LogRecord, header []byte) uint32 {
-	return 0
+	if lr == nil {
+		return 0
+	}
+
+	crc := crc32.ChecksumIEEE(header)
+	crc = crc32.Update(crc, crc32.IEEETable, lr.Key)
+	crc = crc32.Update(crc, crc32.IEEETable, lr.Value)
+
+	return crc
 }
