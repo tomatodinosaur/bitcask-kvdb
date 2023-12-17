@@ -9,7 +9,11 @@ import (
 	"path/filepath"
 )
 
-const DataFileNameSuffix = ".data"
+const (
+	DataFileNameSuffix    = ".data"
+	HintFileName          = "hint-index"
+	MergeFinishedFileName = "merge-finished"
+)
 
 var ErrInvalidCrc = errors.New("Invalid Crc,log Record may be corrupted")
 
@@ -22,15 +26,47 @@ type DataFile struct {
 	IoManager fio.IOManager //Io读写接口，通过此接口进行文件的读写
 }
 
+func GetDataFileName(dirPath string, fileId uint32) string {
+	return filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
+}
+
 // 打开新的数据文件
 func OpenDataFile(dirpath string, fileid uint32) (*DataFile, error) {
-	fileName := filepath.Join(dirpath, fmt.Sprintf("%09d", fileid)+DataFileNameSuffix)
+	fileName := GetDataFileName(dirpath, fileid)
 	ioManager, err := fio.NewFileIOManger(fileName)
 	if err != nil {
 		return nil, err
 	}
 	return &DataFile{
 		FileId:    fileid,
+		Writeoff:  0,
+		IoManager: ioManager,
+	}, nil
+}
+
+// 打开Hint索引文件
+func OpenHintFile(dirpath string) (*DataFile, error) {
+	fileName := filepath.Join(dirpath, HintFileName)
+	ioManager, err := fio.NewFileIOManger(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return &DataFile{
+		FileId:    0,
+		Writeoff:  0,
+		IoManager: ioManager,
+	}, nil
+}
+
+// 打开标识 merge 完成文件
+func OpenMergeFinishedFile(dirpath string) (*DataFile, error) {
+	fileName := filepath.Join(dirpath, MergeFinishedFileName)
+	ioManager, err := fio.NewFileIOManger(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return &DataFile{
+		FileId:    0,
 		Writeoff:  0,
 		IoManager: ioManager,
 	}, nil
@@ -51,6 +87,16 @@ func (df *DataFile) Write(b []byte) error {
 	}
 	df.Writeoff += int64(n)
 	return nil
+}
+
+// 写入索引信息到Hint
+func (df *DataFile) WriteHintRecord(key []byte, pos *LogRecordPos) error {
+	record := &LogRecord{
+		Key:   key,
+		Value: Encode_LogRecordPos(pos),
+	}
+	encrecord, _ := Encode_LogRecord(record)
+	return df.Write(encrecord)
 }
 
 // ReadRecord 根据offset从数据文件中读取LogRecord并返回字节数
