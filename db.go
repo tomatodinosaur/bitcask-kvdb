@@ -14,13 +14,10 @@ import (
 )
 
 /*
-	Put主方法的并发保护：（Index表、File表、磁盘都需要写）
-		在appendLogRecord中使用 DB.mu 保护activefile、olderfile和磁盘文件
-		由Btree.Lock保护Index<key,pos>表
-	Get主方法的并发保护：（Index表 GET操作无需保护)
-		整体使用DB.mu保护
+	db.mutex 只负责对磁盘文件上锁
+	db.index 独立实现对内存索引上锁
 
-	减小Index表的加锁粒度，增加并发
+	减小表的加锁粒度，增加并发
 */
 
 // DB bitcask存储引擎实例
@@ -124,7 +121,9 @@ func (db *DB) Put(key []byte, value []byte) error {
 	}
 
 	//追加写入到活跃文件
-	pos, err := db.appendLogRecordWithLock(&log_record)
+	db.mu.Lock()
+	pos, err := db.appendLogRecord(&log_record)
+	db.mu.Unlock()
 	if err != nil {
 		return err
 	}
@@ -155,10 +154,13 @@ func (db *DB) Delete(key []byte) error {
 		Key:  LogRecordKeyWithSeq(key, NonTransactionSewNo),
 		Type: data.LogRecordDeleted,
 	}
-	_, err := db.appendLogRecordWithLock(&logRecord)
+	db.mu.Lock()
+	_, err := db.appendLogRecord(&logRecord)
 	if err != nil {
+		db.mu.Unlock()
 		return nil
 	}
+	db.mu.Unlock()
 
 	//从内存索引中将对应的key删除
 	ok := db.index.Delete(key)
@@ -170,8 +172,6 @@ func (db *DB) Delete(key []byte) error {
 
 // 根据索引找到数据文件并读取Value
 func (db *DB) Get(key []byte) ([]byte, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	//判断key有效
 	if len(key) == 0 {
 		return nil, ErrKeyIsEmpty
@@ -183,8 +183,10 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 		return nil, ErrKeyNotFind
 	}
 	// 根据索引协议获取对应的Value
-	return db.getValueByPostion(logpos)
-
+	db.mu.Lock()
+	ans, err := db.getValueByPostion(logpos)
+	db.mu.Unlock()
+	return ans, err
 }
 
 // 获取 数据库中所有的key
@@ -300,12 +302,6 @@ func (db *DB) getValueByPostion(logpos *data.LogRecordPos) ([]byte, error) {
 	}
 
 	return logrecord.Value, nil
-}
-
-func (db *DB) appendLogRecordWithLock(logrecord *data.LogRecord) (*data.LogRecordPos, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	return db.appendLogRecord(logrecord)
 }
 
 // 写入数据到活跃文件

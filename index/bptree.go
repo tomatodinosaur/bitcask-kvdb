@@ -103,7 +103,7 @@ func (bpt *BPlusTree) Iterator(reverse bool) Iterator {
 	return newBptreeIterator(bpt.tree, reverse)
 }
 
-// B+树迭代树
+// B+树迭代器
 type bptreeIterator struct {
 	tx        *bbolt.Tx
 	cursor    *bbolt.Cursor

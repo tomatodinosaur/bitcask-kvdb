@@ -4,6 +4,7 @@ import (
 	"bitcask/utils"
 	"bytes"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -252,4 +253,72 @@ func TestDB_Close(t *testing.T) {
 	db.Close()
 	err = db.Put(utils.GetTestKey(1), utils.RandomValue(4))
 	assert.Nil(t, err)
+}
+
+func TestDB_Multithreading(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go")
+	opts.Dirpath = dir
+	opts.DataFileSize = 64 * 1024 * 1024
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	var wg sync.WaitGroup
+	wg.Add(300)
+	for j := 0; j < 100; j++ {
+		go func() {
+			for i := 0; i < 10000; i++ {
+				db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+			}
+			wg.Done()
+		}()
+	}
+	for j := 0; j < 100; j++ {
+		go func() {
+			for i := 0; i < 10000; i++ {
+				db.Get(utils.GetTestKey(i))
+			}
+			wg.Done()
+		}()
+	}
+	for j := 0; j < 100; j++ {
+		go func() {
+			for i := 0; i < 10000; i++ {
+				db.Delete(utils.GetTestKey(i))
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestMultiDelete(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go")
+	opts.Dirpath = dir
+	opts.DataFileSize = 64 * 1024 * 1024
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10000; i++ {
+		db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+	}
+	wg.Add(100)
+
+	for j := 0; j < 100; j++ {
+		go func() {
+			for i := 0; i < 10000; i++ {
+				db.Delete(utils.GetTestKey(i))
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }
