@@ -13,6 +13,7 @@ const (
 	DataFileNameSuffix    = ".data"
 	HintFileName          = "hint-index"
 	MergeFinishedFileName = "merge-finished"
+	SeqNoFileName         = "seq-no"
 )
 
 var ErrInvalidCrc = errors.New("Invalid Crc,log Record may be corrupted")
@@ -70,6 +71,21 @@ func OpenMergeFinishedFile(dirpath string) (*DataFile, error) {
 		Writeoff:  0,
 		IoManager: ioManager,
 	}, nil
+}
+
+// 打开标识 merge 完成文件
+func OpenSeqNoFile(dirpath string) (*DataFile, error) {
+	fileName := filepath.Join(dirpath, SeqNoFileName)
+	ioManager, err := fio.NewFileIOManger(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return &DataFile{
+		FileId:    0,
+		Writeoff:  0,
+		IoManager: ioManager,
+	}, nil
+
 }
 
 func (df *DataFile) Sync() error {

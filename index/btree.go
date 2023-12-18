@@ -53,6 +53,10 @@ func (bt *BTree) Size() int {
 	return bt.tree.Len()
 }
 
+func (bt *BTree) Close() error {
+	return nil
+}
+
 func (bt *BTree) Iterator(reverse bool) Iterator {
 	if bt.tree == nil {
 		return nil

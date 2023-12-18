@@ -9,9 +9,9 @@ import (
 func TestArt(t *testing.T) {
 
 	art := NewART()
-	art.Put(utils.GetTestKey(1), &data.LogRecordPos{1, 12})
-	art.Put(utils.GetTestKey(2), &data.LogRecordPos{2, 12})
-	art.Put(utils.GetTestKey(3), &data.LogRecordPos{3, 12})
+	art.Put(utils.GetTestKey(1), &data.LogRecordPos{Fid: 1, Offset: 12})
+	art.Put(utils.GetTestKey(2), &data.LogRecordPos{Fid: 2, Offset: 12})
+	art.Put(utils.GetTestKey(3), &data.LogRecordPos{Fid: 3, Offset: 12})
 
 	art.Delete(utils.GetTestKey(2))
 	pos := art.Get(utils.GetTestKey(2))

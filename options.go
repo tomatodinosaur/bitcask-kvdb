@@ -40,6 +40,9 @@ const (
 
 	//ART 自适应基数树
 	ART
+
+	//BPlusTree B+树，将索引存储在磁盘上
+	BPlusTree
 )
 
 var DefaultOptions = Options{
