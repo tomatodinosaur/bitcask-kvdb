@@ -14,6 +14,9 @@ type Options struct {
 
 	//索引数据结构类型
 	IndexType IndexType
+
+	//索引池个数
+	IndexNum int64
 }
 
 // Iterator配置项
@@ -49,7 +52,8 @@ var DefaultOptions = Options{
 	Dirpath:      os.TempDir(),
 	DataFileSize: 256 * 1024 * 1024,
 	SyncWrites:   false,
-	IndexType:    Btree,
+	IndexType:    ART,
+	IndexNum:     10,
 }
 
 var DefalutIteratorOptions = IteratorOptions{

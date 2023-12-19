@@ -39,17 +39,24 @@ const (
 )
 
 // NEWIndexer 根据类型初始化索引
-func NEWIndexer(tp IndexType, dirpath string, sync bool) Indexer {
+func NEWIndexer(tp IndexType, dirpath string, sync bool, IndexNum int64) Indexer {
 	switch tp {
 	case Btree:
 		return NewBtree()
 	case ART:
-		return NewART()
+		return NewART(IndexNum)
 	case BPtree:
 		return NewBPlusTree(dirpath, sync)
 	default:
 		panic("unsupported index type")
 	}
+}
+func Hash(data []byte, IndexNum int64) int {
+	var integer int
+	for i := 0; i < len(data); i++ {
+		integer += int(data[i])
+	}
+	return integer % int(IndexNum)
 }
 
 type Item struct {

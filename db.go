@@ -64,7 +64,7 @@ func Open(options Options) (*DB, error) {
 		options:   options,
 		mu:        new(sync.RWMutex),
 		olderfile: make(map[uint32]*data.DataFile),
-		index:     index.NEWIndexer(options.IndexType, options.Dirpath, options.SyncWrites),
+		index:     index.NEWIndexer(options.IndexType, options.Dirpath, options.SyncWrites, options.IndexNum),
 		isInitial: isInitial,
 	}
 

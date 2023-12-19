@@ -322,3 +322,38 @@ func TestMultiDelete(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestDB_Easythreading(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go")
+	opts.Dirpath = dir
+	opts.DataFileSize = 64 * 1024 * 1024
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		for i := 0; i < 10000; i++ {
+			db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+		}
+		wg.Done()
+	}()
+	go func() {
+		for i := 0; i < 10000; i++ {
+			db.Get(utils.GetTestKey(i))
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		for i := 0; i < 10000; i++ {
+			db.Delete(utils.GetTestKey(i))
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
