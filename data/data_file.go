@@ -31,61 +31,40 @@ func GetDataFileName(dirPath string, fileId uint32) string {
 	return filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
 }
 
-// 打开新的数据文件
-func OpenDataFile(dirpath string, fileid uint32) (*DataFile, error) {
-	fileName := GetDataFileName(dirpath, fileid)
-	ioManager, err := fio.NewFileIOManger(fileName)
+func newDataFile(fileName string, fileId uint32, iotype fio.FileIoType) (*DataFile, error) {
+	ioManager, err := fio.NewIoManager(fileName, iotype)
 	if err != nil {
 		return nil, err
 	}
 	return &DataFile{
-		FileId:    fileid,
+		FileId:    fileId,
 		Writeoff:  0,
 		IoManager: ioManager,
 	}, nil
+}
+
+// 打开新的数据文件
+func OpenDataFile(dirpath string, fileid uint32, iotype fio.FileIoType) (*DataFile, error) {
+	fileName := GetDataFileName(dirpath, fileid)
+	return newDataFile(fileName, fileid, iotype)
 }
 
 // 打开Hint索引文件
 func OpenHintFile(dirpath string) (*DataFile, error) {
 	fileName := filepath.Join(dirpath, HintFileName)
-	ioManager, err := fio.NewFileIOManger(fileName)
-	if err != nil {
-		return nil, err
-	}
-	return &DataFile{
-		FileId:    0,
-		Writeoff:  0,
-		IoManager: ioManager,
-	}, nil
+	return newDataFile(fileName, 0, fio.StandardFio)
 }
 
 // 打开标识 merge 完成文件
 func OpenMergeFinishedFile(dirpath string) (*DataFile, error) {
 	fileName := filepath.Join(dirpath, MergeFinishedFileName)
-	ioManager, err := fio.NewFileIOManger(fileName)
-	if err != nil {
-		return nil, err
-	}
-	return &DataFile{
-		FileId:    0,
-		Writeoff:  0,
-		IoManager: ioManager,
-	}, nil
+	return newDataFile(fileName, 0, fio.StandardFio)
 }
 
 // 打开标识 merge 完成文件
 func OpenSeqNoFile(dirpath string) (*DataFile, error) {
 	fileName := filepath.Join(dirpath, SeqNoFileName)
-	ioManager, err := fio.NewFileIOManger(fileName)
-	if err != nil {
-		return nil, err
-	}
-	return &DataFile{
-		FileId:    0,
-		Writeoff:  0,
-		IoManager: ioManager,
-	}, nil
-
+	return newDataFile(fileName, 0, fio.StandardFio)
 }
 
 func (df *DataFile) Sync() error {
@@ -176,4 +155,16 @@ func (df *DataFile) readNBytes(n int64, offset int64) ([]byte, error) {
 		return nil, err
 	}
 	return b, err
+}
+
+func (df *DataFile) SetIoManager(dirpath string, iotype fio.FileIoType) error {
+	if err := df.IoManager.Close(); err != nil {
+		return err
+	}
+	ioManger, err := fio.NewIoManager(GetDataFileName(dirpath, df.FileId), iotype)
+	if err != nil {
+		return err
+	}
+	df.IoManager = ioManger
+	return nil
 }

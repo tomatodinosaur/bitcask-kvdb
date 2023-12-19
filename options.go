@@ -12,11 +12,16 @@ type Options struct {
 	//每次写入都需持久化
 	SyncWrites bool
 
+	//累计写到了阈值进行持久化
+	BytesPerSync uint
+
 	//索引数据结构类型
 	IndexType IndexType
 
 	//索引池个数
 	IndexNum int64
+
+	MMapOpen bool
 }
 
 // Iterator配置项
@@ -54,6 +59,8 @@ var DefaultOptions = Options{
 	SyncWrites:   false,
 	IndexType:    ART,
 	IndexNum:     10,
+	BytesPerSync: 0,
+	MMapOpen:     true,
 }
 
 var DefalutIteratorOptions = IteratorOptions{

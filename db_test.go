@@ -357,3 +357,40 @@ func TestDB_Easythreading(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestDB_FileLock(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go")
+	opts.Dirpath = dir
+	opts.DataFileSize = 64 * 1024 * 1024
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	db2, err := Open(opts)
+	assert.Nil(t, db2)
+	assert.Equal(t, err, ErrDataBaseIsUsing)
+
+	db.Close()
+	db2, err = Open(opts)
+	assert.NotNil(t, db2)
+	assert.Nil(t, err)
+
+}
+
+func TestMMapIo(t *testing.T) {
+	opts := DefaultOptions
+	opts.Dirpath = "/tmp/bit"
+	opts.DataFileSize = 64 * 1024
+	opts.MMapOpen = true
+	db, err := Open(opts)
+
+	// //defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	// for i := 0; i < 100000000; i++ {
+	// 	db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+	// }
+}
