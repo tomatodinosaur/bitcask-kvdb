@@ -651,3 +651,10 @@ func (db *DB) Stat() *Stat {
 		DiskSize:    dirSize,
 	}
 }
+
+// BackUp 备份数据库，将数据文件拷贝到新的目录
+func (db *DB) BackUp(dest string) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	return utils.CopyDir(db.options.Dirpath, dest, []string{fileLockName})
+}

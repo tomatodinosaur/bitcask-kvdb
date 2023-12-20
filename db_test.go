@@ -433,3 +433,38 @@ func TestStat(t *testing.T) {
 	stat := db.Stat()
 	t.Log(stat)
 }
+
+func TestBackUp(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go")
+	opts.Dirpath = dir
+	opts.DataFileSize = 64 * 1024
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+	for i := 0; i < 10000; i++ {
+		db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+	}
+	for i := 0; i < 10000; i++ {
+		db.Get(utils.GetTestKey(i))
+	}
+
+	for i := 0; i < 10000; i++ {
+		db.Delete(utils.GetTestKey(i))
+	}
+	stat := db.Stat()
+
+	backupdir, _ := os.MkdirTemp("", "bitcask-go-backup")
+	db.BackUp(backupdir)
+	db.Close()
+	opts.Dirpath = backupdir
+	db2, err := Open(opts)
+	defer destroyDB(db2)
+	assert.Nil(t, err)
+	assert.NotNil(t, db2)
+
+	stat2 := db2.Stat()
+
+	assert.Equal(t, stat, stat2)
+}
