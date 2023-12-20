@@ -30,7 +30,7 @@ func TestArt_MulitiThread(t *testing.T) {
 	wg.Add(300)
 	for j := 0; j < 100; j++ {
 		go func() {
-			for i := 0; i < 1000; i++ {
+			for i := 0; i < 100000; i++ {
 				art.Put(utils.GetTestKey(i), &data.LogRecordPos{Fid: uint32(i), Offset: 12})
 			}
 			wg.Done()
@@ -38,7 +38,7 @@ func TestArt_MulitiThread(t *testing.T) {
 	}
 	for j := 0; j < 100; j++ {
 		go func() {
-			for i := 0; i < 1000; i++ {
+			for i := 0; i < 100000; i++ {
 				art.Get(utils.GetTestKey(i))
 			}
 			wg.Done()
@@ -46,7 +46,7 @@ func TestArt_MulitiThread(t *testing.T) {
 	}
 	for j := 0; j < 100; j++ {
 		go func() {
-			for i := 0; i < 1000; i++ {
+			for i := 0; i < 100000; i++ {
 				art.Delete(utils.GetTestKey(i))
 			}
 			wg.Done()

@@ -4,6 +4,7 @@ import (
 	"bitcask/data"
 	"bitcask/fio"
 	"bitcask/index"
+	"bitcask/utils"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +45,15 @@ type DB struct {
 	isInitial       bool                      //是否是第一次初始化此数据目录
 	fileLock        *flock.Flock              //文件锁保障多进程之间互斥
 	bytesWrite      uint                      //累计写了多少个字节
+	DeletedSize     int64                     //无效数据
+}
+
+// 存储引擎统计信息
+type Stat struct {
+	KeyNum      uint  //Key数量
+	DataFileNum uint  //数据文件数量
+	DeletedSize int64 //无效数据，以字节为单位
+	DiskSize    int64 //占据磁盘空间大小
 }
 
 // Open 启动 bitcask 存储引擎实例 :检查、安装
@@ -157,9 +167,11 @@ func (db *DB) Put(key []byte, value []byte) error {
 	}
 
 	//更新内存索引
-	ok := db.index.Put(key, pos)
-	if !ok {
-		return ErrIndexUpdateFailed
+	oldpos := db.index.Put(key, pos)
+	if oldpos != nil {
+		db.mu.Lock()
+		db.DeletedSize += int64(oldpos.Size)
+		db.mu.Unlock()
 	}
 	return nil
 }
@@ -183,17 +195,23 @@ func (db *DB) Delete(key []byte) error {
 		Type: data.LogRecordDeleted,
 	}
 	db.mu.Lock()
-	_, err := db.appendLogRecord(&logRecord)
+	pos, err := db.appendLogRecord(&logRecord)
 	if err != nil {
 		db.mu.Unlock()
 		return nil
 	}
+	db.DeletedSize += int64(pos.Size)
 	db.mu.Unlock()
 
 	//从内存索引中将对应的key删除
-	ok := db.index.Delete(key)
+	oldval, ok := db.index.Delete(key)
 	if !ok {
 		return ErrIndexUpdateFailed
+	}
+	if oldval != nil {
+		db.mu.Lock()
+		db.DeletedSize += int64(oldval.Size)
+		db.mu.Unlock()
 	}
 	return nil
 }
@@ -219,9 +237,11 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 
 // 获取 数据库中所有的key
 func (db *DB) ListKeys() [][]byte {
+	db.mu.RLock()
 	iter := db.index.Iterator(false)
 	defer iter.Close()
 	ans := make([][]byte, db.index.Size())
+	db.mu.RUnlock()
 	idx := 0
 	for iter.Rewind(); iter.Valid(); iter.Next() {
 		key := iter.Key()
@@ -234,9 +254,9 @@ func (db *DB) ListKeys() [][]byte {
 // 获取 所有的数据，并执行用户指定的操作
 func (db *DB) Fold(f func(key []byte, value []byte) bool) error {
 	db.mu.RLock()
-	defer db.mu.RUnlock()
 	iter := db.NewIterator(DefalutIteratorOptions)
 	defer iter.Close()
+	db.mu.RUnlock()
 	for iter.Rewind(); iter.Valid(); iter.Next() {
 		key := iter.Key()
 		value, err := iter.Value()
@@ -390,6 +410,7 @@ func (db *DB) appendLogRecord(logrecord *data.LogRecord) (*data.LogRecordPos, er
 	return &data.LogRecordPos{
 		Fid:    db.activefile.FileId,
 		Offset: res_writeoff,
+		Size:   uint32(size),
 	}, nil
 }
 
@@ -416,6 +437,9 @@ func checkoptions(options Options) error {
 	}
 	if options.DataFileSize <= 0 {
 		return errors.New("database data file size must be greater than 0")
+	}
+	if options.DataFileMergeRatio < 0 || options.DataFileMergeRatio > 1 {
+		return errors.New("invalid merge ratio,must between 0 and 1")
 	}
 	return nil
 }
@@ -488,14 +512,15 @@ func (db *DB) loadIndexFromDataFiles() error {
 	// }
 
 	updateIndex := func(key []byte, typ data.LogRecordType, pos *data.LogRecordPos) {
-		var ok bool
+		var oldpos *data.LogRecordPos
 		if typ == data.LogRecordDeleted {
-			ok = db.index.Delete(key)
+			oldpos, _ = db.index.Delete(key)
+			db.DeletedSize += int64(pos.Size)
 		} else {
-			ok = db.index.Put(key, pos)
+			oldpos = db.index.Put(key, pos)
 		}
-		if !ok {
-			panic("failed to update index of startup")
+		if oldpos != nil {
+			db.DeletedSize += int64(oldpos.Size)
 		}
 	}
 
@@ -532,7 +557,7 @@ func (db *DB) loadIndexFromDataFiles() error {
 			}
 
 			//构造内存索引并保存
-			logRecordPos := &data.LogRecordPos{Fid: fileid, Offset: offset}
+			logRecordPos := &data.LogRecordPos{Fid: fileid, Offset: offset, Size: uint32(size)}
 
 			//解析 Key,拿到事物序列号
 			realkey, seqNo := parseLogRecordKey(logRecord.Key)
@@ -604,4 +629,25 @@ func (db *DB) resetIoType() error {
 		}
 	}
 	return nil
+}
+
+// 存储引擎状态信息
+func (db *DB) Stat() *Stat {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var files = uint(len(db.olderfile))
+	if db.activefile != nil {
+		files += 1
+	}
+	dirSize, err := utils.DirSize(db.options.Dirpath)
+	if err != nil {
+		panic(fmt.Errorf("failed to get dir size"))
+	}
+	return &Stat{
+		KeyNum:      uint(db.index.Size()),
+		DataFileNum: files,
+		DeletedSize: db.DeletedSize,
+		DiskSize:    dirSize,
+	}
 }

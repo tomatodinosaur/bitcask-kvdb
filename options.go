@@ -21,7 +21,11 @@ type Options struct {
 	//索引池个数
 	IndexNum int64
 
+	//启动时是否使用MMap 加载数据
 	MMapOpen bool
+
+	//数据文件合并的阈值
+	DataFileMergeRatio float32
 }
 
 // Iterator配置项
@@ -54,13 +58,14 @@ const (
 )
 
 var DefaultOptions = Options{
-	Dirpath:      os.TempDir(),
-	DataFileSize: 256 * 1024 * 1024,
-	SyncWrites:   false,
-	IndexType:    ART,
-	IndexNum:     10,
-	BytesPerSync: 0,
-	MMapOpen:     true,
+	Dirpath:            os.TempDir(),
+	DataFileSize:       256 * 1024 * 1024,
+	SyncWrites:         false,
+	IndexType:          Btree,
+	IndexNum:           10,
+	BytesPerSync:       0,
+	MMapOpen:           true,
+	DataFileMergeRatio: 0.5,
 }
 
 var DefalutIteratorOptions = IteratorOptions{

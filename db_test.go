@@ -75,7 +75,7 @@ func TestDB_Put(t *testing.T) {
 	//6、重启后再Put
 	err = db.activefile.Close()
 	assert.Nil(t, err)
-
+	db.Close()
 	db2, err := Open(opts)
 	assert.Nil(t, err)
 	assert.NotNil(t, db2)
@@ -145,6 +145,7 @@ func TestDB_Delete(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, val)
 
+	db.Close()
 	//重启之后在进行校验
 	db2, err := Open(opts)
 	assert.Nil(t, err)
@@ -201,9 +202,7 @@ func Test_ListKeys(t *testing.T) {
 	assert.Equal(t, 2, len(db.olderfile))
 
 	//6、重启后再Put
-	err = db.activefile.Close()
-	assert.Nil(t, err)
-
+	db.Close()
 	db2, err := Open(opts)
 	assert.Nil(t, err)
 	assert.NotNil(t, db2)
@@ -268,31 +267,30 @@ func TestDB_Multithreading(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(300)
 	for j := 0; j < 100; j++ {
+		start := j * 10000
 		go func() {
-			for i := 0; i < 10000; i++ {
+			for i := start; i < start+10000; i++ {
 				db.Put(utils.GetTestKey(i), utils.RandomValue(4))
 			}
 			wg.Done()
 		}()
-	}
-	for j := 0; j < 100; j++ {
 		go func() {
-			for i := 0; i < 10000; i++ {
+			for i := start; i < start+10000; i++ {
 				db.Get(utils.GetTestKey(i))
 			}
 			wg.Done()
 		}()
-	}
-	for j := 0; j < 100; j++ {
 		go func() {
-			for i := 0; i < 10000; i++ {
+			for i := start; i < start+10000; i++ {
 				db.Delete(utils.GetTestKey(i))
 			}
 			wg.Done()
 		}()
 	}
-
 	wg.Wait()
+
+	stat := db.Stat()
+	t.Log(stat)
 }
 
 func TestMultiDelete(t *testing.T) {
@@ -393,4 +391,45 @@ func TestMMapIo(t *testing.T) {
 	// for i := 0; i < 100000000; i++ {
 	// 	db.Put(utils.GetTestKey(i), utils.RandomValue(4))
 	// }
+}
+
+func TestStat(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go")
+	opts.Dirpath = dir
+	opts.DataFileSize = 64 * 1024
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+	for i := 0; i < 10000; i++ {
+		db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+	}
+	for i := 0; i < 10000; i++ {
+		db.Get(utils.GetTestKey(i))
+	}
+
+	for i := 0; i < 10000; i++ {
+		db.Delete(utils.GetTestKey(i))
+	}
+
+	// var wg sync.WaitGroup
+	// wg.Add(2)
+	// go func() {
+	// 	for i := 0; i < 100000; i++ {
+	// 		db.Put(utils.GetTestKey(i), utils.RandomValue(4))
+	// 	}
+	// 	wg.Done()
+	// }()
+
+	// go func() {
+	// 	for i := 0; i < 100000; i++ {
+	// 		db.Delete(utils.GetTestKey(i))
+	// 	}
+	// 	wg.Done()
+	// }()
+	// wg.Wait()
+
+	stat := db.Stat()
+	t.Log(stat)
 }

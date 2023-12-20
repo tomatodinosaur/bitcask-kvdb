@@ -124,11 +124,18 @@ func (wb *WriteBatch) Commit() error {
 	//整个事物写入之后更新Index-table
 	for _, record := range wb.pendingWrites {
 		pos := positons[string(record.Key)]
+		var oldpos *data.LogRecordPos
 		if record.Type == data.LogRecordDeleted {
-			wb.db.index.Delete(record.Key)
+			oldpos, _ = wb.db.index.Delete(record.Key)
+			if pos != nil {
+				wb.db.DeletedSize += int64(pos.Size)
+			}
 		}
 		if record.Type == data.LogRecordNormal {
-			wb.db.index.Put(record.Key, pos)
+			oldpos = wb.db.index.Put(record.Key, pos)
+		}
+		if oldpos != nil {
+			wb.db.DeletedSize += int64(oldpos.Size)
 		}
 	}
 

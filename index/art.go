@@ -33,12 +33,15 @@ func NewART(num int64) *AdaptiveRadixTree {
 }
 
 // 向内存索引中存储key对应的数据位置信息
-func (art *AdaptiveRadixTree) Put(key []byte, pos *data.LogRecordPos) bool {
+func (art *AdaptiveRadixTree) Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos {
 	index := Hash(key, art.IndexNum)
 	art.lock[index].Lock()
-	art.tree[index].Insert(key, pos)
+	old, _ := art.tree[index].Insert(key, pos)
 	art.lock[index].Unlock()
-	return true
+	if old == nil {
+		return nil
+	}
+	return old.(*data.LogRecordPos)
 }
 
 // 根据key值取出内存中对应的索引位置信息
@@ -54,12 +57,15 @@ func (art *AdaptiveRadixTree) Get(key []byte) *data.LogRecordPos {
 }
 
 // 根据key值删除对应的索引位置信息
-func (art *AdaptiveRadixTree) Delete(key []byte) bool {
+func (art *AdaptiveRadixTree) Delete(key []byte) (*data.LogRecordPos, bool) {
 	index := Hash(key, art.IndexNum)
 	art.lock[index].Lock()
-	_, deleted := art.tree[index].Delete(key)
+	old, deleted := art.tree[index].Delete(key)
 	art.lock[index].Unlock()
-	return deleted
+	if old == nil {
+		return nil, false
+	}
+	return old.(*data.LogRecordPos), deleted
 }
 
 // 返回索引中的个数
