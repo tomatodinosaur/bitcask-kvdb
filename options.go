@@ -61,7 +61,7 @@ var DefaultOptions = Options{
 	Dirpath:            os.TempDir(),
 	DataFileSize:       256 * 1024 * 1024,
 	SyncWrites:         false,
-	IndexType:          Btree,
+	IndexType:          ART,
 	IndexNum:           10,
 	BytesPerSync:       0,
 	MMapOpen:           true,
