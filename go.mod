@@ -10,6 +10,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/saint-yellow/baradb v0.1.1 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/tidwall/btree v1.1.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/redcon v1.6.2 // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
 	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611 // indirect
 	golang.org/x/sys v0.8.0 // indirect
